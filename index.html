@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0a1f">
+<title>JISEO POP! — 왕벌의 비행 컬렉션</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- 게임 레이어 (풍선 + 파티클) -->
+  <canvas id="stage"></canvas>
+
+  <!-- 상단 HUD -->
+  <header class="hud" id="hud" aria-hidden="true">
+    <div class="hud-row">
+      <div class="stat">
+        <span class="stat-label">컬렉션</span>
+        <b><span id="colCount">0</span><i id="colTotal">/8</i></b>
+      </div>
+      <div class="combo" id="combo">
+        <span id="comboX">x1</span>
+        <i>COMBO</i>
+      </div>
+      <div class="stat right">
+        <span class="stat-label">TIME</span>
+        <b id="time">30</b>
+      </div>
+    </div>
+    <div class="timebar"><i id="timefill"></i></div>
+    <div class="collection" id="collection"></div>
+    <div class="bonus">보너스 점수 <b id="score">0</b></div>
+  </header>
+
+  <div class="hit-flash" id="hitFlash"></div>
+
+  <!-- 재생 중인 곡 안내 -->
+  <div class="now-playing" id="nowPlaying">
+    <span class="np-eq"><i></i><i></i><i></i><i></i></span>
+    <span class="np-txt">
+      <b>왕벌의 비행 <em>Flight of the Bumblebee</em></b>
+      <span id="npPerformer">림스키코르사코프 · 1900</span>
+    </span>
+  </div>
+  <div class="fever-banner" id="feverBanner">🐝 벌떼 러시 🐝</div>
+
+  <!-- 대기 화면 -->
+  <section class="screen attract show" id="scAttract">
+    <div class="attract-inner">
+      <p class="eyebrow">누구나 <b>100% 당첨</b> · 참가비 없음</p>
+      <h1 class="logo">JISEO <span>POP!</span></h1>
+      <p class="lead-copy">〈왕벌의 비행〉이 끝나기 전에<br><b>풍선 속 제품</b>을 모두 모으세요.</p>
+
+      <div class="lineup" id="lineup"></div>
+
+      <button class="btn primary big pulse" id="btnStart">화면을 만지면 바로 시작 ▶</button>
+
+      <p class="rule">손이 스치는 풍선은 <b>전부 터집니다</b> · 모은 제품 종류 = 할인율</p>
+      <p class="warn">💣 아래에서 <b>두둥실 떠오르는 폭탄</b>은 만지면 안 돼요! <span>모은 제품을 뺏깁니다</span></p>
+
+      <ul class="reward-strip">
+        <li><b>2종</b><span>10%</span></li>
+        <li><b>4종</b><span>15%</span></li>
+        <li><b>6종</b><span>20%</span></li>
+        <li class="hot"><b>8종</b><span>25% +정품</span></li>
+      </ul>
+
+      <div class="ticker" id="ticker" hidden></div>
+
+      <p class="music-credit">
+        <span class="mc-note">♪</span>
+        <b>왕벌의 비행</b> <i>Flight of the Bumblebee</i><br>
+        림스키코르사코프 作, 1900 · 오페라 〈술탄 황제의 이야기〉 3막<br>
+        <span>왕자가 호박벌로 변해 날아가는 장면 — 16분음표가 <b>초당 11개</b>로 쏟아지는,
+        가장 빠른 클래식 중 하나입니다.</span>
+      </p>
+    </div>
+  </section>
+
+  <!-- 카운트다운 -->
+  <section class="screen count" id="scCount">
+    <div class="count-num" id="countNum">3</div>
+    <p class="count-tip">손바닥으로 쓸어도 터집니다!</p>
+    <p class="count-warn">단, 💣 폭탄은 피하세요</p>
+  </section>
+
+  <!-- 결과 -->
+  <section class="screen result" id="scResult">
+    <div class="card" id="resultCard">
+      <div class="grade" id="rGrade">GOLD</div>
+
+      <div class="col-headline">
+        <b id="rColCount">0</b><span id="rColTotal">/ 8 종 수집</span>
+      </div>
+      <div class="col-bar"><i id="rColBar"></i></div>
+
+      <div class="col-grid" id="rColGrid"></div>
+
+      <p class="near" id="rNear"></p>
+
+      <div class="coupon" id="coupon">
+        <div class="coupon-top">
+          <span class="coupon-brand">JISEO</span>
+          <span class="coupon-badge">당첨 쿠폰</span>
+        </div>
+        <div class="coupon-percent">
+          <b id="rPercent">15</b><i>%</i><span>OFF</span>
+        </div>
+        <div class="coupon-perk" id="rPerk"></div>
+        <div class="coupon-divider"><span></span><span></span></div>
+        <div class="coupon-code" id="rCode">JISEO-0000</div>
+        <p class="coupon-expire">이 쿠폰은 <b id="rExpire">10:00</b> 후 사라집니다</p>
+      </div>
+
+      <div class="gifts" id="rGifts"></div>
+
+      <div class="lead-box" id="leadBox"></div>
+
+      <div class="board" id="board"></div>
+
+      <div class="actions">
+        <button class="btn primary" id="btnRetry">한 번 더! 🐝</button>
+        <button class="btn ghost" id="btnShare">자랑하기</button>
+      </div>
+      <p class="staff-tip">📣 이 화면을 <b>스태프에게 보여주세요</b> — 제품 증정 + 할인 적용</p>
+    </div>
+  </section>
+
+  <div class="sys-btns">
+    <button class="sys-btn" id="btnSound" title="소리">🔊</button>
+    <button class="sys-btn" id="btnFs" title="전체화면">⛶</button>
+  </div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
