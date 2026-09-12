@@ -13,7 +13,7 @@ const CONFIG = {
   duration: 30,
   couponMinutes: 10,
   leadBonusPercent: 5,
-  maxPercent: 30,
+  maxPercent: 40,
 
   /* 제품 = 게임의 주인공.
      rarity: common(자주) / rare(가끔) / legendary(골든 풍선에서만)
@@ -41,7 +41,7 @@ const CONFIG = {
 
   /* 등급 = 모은 제품 "종류 수" 로 결정 (점수 아님) */
   tiers: [
-    { min:8, grade:'MASTER',  label:'마스터', percent:25, perk:'전 제품 컬렉션 완성 · 정품 풀사이즈 증정' },
+    { min:8, grade:'MASTER',  label:'마스터', percent:30, perk:'전 제품 컬렉션 완성 · 정품 풀사이즈 증정' },
     { min:6, grade:'DIAMOND', label:'다이아', percent:20, perk:'인기 제품 미니어처 키트 증정' },
     { min:4, grade:'GOLD',    label:'골드',   percent:15, perk:'미니어처 2종 증정' },
     { min:2, grade:'SILVER',  label:'실버',   percent:10, perk:'샘플 3종 증정' },
@@ -114,7 +114,7 @@ const BEE = [
 ];
 const BASS = [45,45,45,45, 45,45,45,45, 40,40,40,40, 45,45,45,45];  // A2 / E2
 
-/* ============ 이메일 웹훅 ============
+/* ============ 응모 정보 웹훅 ============
    기존 price-slasher-game 과 동일한 Make.com 웹훅을 씁니다.
    그쪽 시나리오가 이미 쓰고 있는 필드명(date/time/email/code/score/cleared/
    discount/agreedAt/source)을 그대로 보내고, 우리 게임 전용 값만 덧붙입니다.
@@ -948,14 +948,21 @@ function leadMarkup(){
       <label class="agree">
         <input type="checkbox" id="leadAgree">
         <span>개인정보 수집·이용에 동의합니다
-          <em>쿠폰 발송·이벤트 안내 목적 / 이름·이메일 / 6개월 보관</em></span>
+          <em>이벤트 안내·혜택 제공 목적 / 이름·이메일 / 6개월 보관</em></span>
       </label>
       <button type="submit" class="btn small">추가 할인 받기</button>
     </form>
-    <small>${WEBHOOK.url ? '* 입력하신 이메일로 쿠폰이 발송됩니다.' : '* 입력 정보는 이 기기에만 저장됩니다.'}</small>`;
+    <small>* 쿠폰은 아래 코드로 현장에서 바로 사용하세요.</small>`;
 }
 function bindLead(){
   const form = $('leadForm'); if (!form) return;
+  // 휴대폰 키보드가 올라오면 제출 버튼이 가려진다 → 입력창을 화면 안으로 끌어온다
+  ['leadName','leadEmail'].forEach(id => {
+    const n = $(id); if (!n) return;
+    n.addEventListener('focus', () => setTimeout(() => {
+      form.scrollIntoView({ block:'center', behavior:'smooth' });
+    }, 320));
+  });
   form.addEventListener('submit', e => {
     e.preventDefault();
     const name  = $('leadName').value.trim();
@@ -999,18 +1006,20 @@ function bindLead(){
     el.leadBox.innerHTML =
       `<p class="lead-title">✅ ${name ? name + '님, ' : ''}<b>${G.percent}% 할인</b>으로 업그레이드!</p>
        <small>쿠폰 코드 ${G.code} · 스태프에게 이 화면을 보여주세요.</small>
-       <p class="send-status" id="sendStatus">📨 전송 중…</p>`;
+       <p class="send-status" id="sendStatus">📨 응모 접수 중…</p>`;
     makeConfetti(60); sfx.golden(); shake();
 
     if (!WEBHOOK.url){
-      setSendStatus('✅ 이 기기에 저장되었습니다', 'ok');
+      setSendStatus('✅ 응모 접수 완료', 'ok');
       return;
     }
     postLead(payload).then(r => {
-      if (r.ok){ setSendStatus(r.via === 'beacon' ? '✅ 응모 접수 완료' : '✅ 이메일 전송 완료', 'ok'); }
+      if (r.ok){ setSendStatus('✅ 응모 접수 완료', 'ok'); }
       else {
         outboxAdd(payload);
-        setSendStatus('📨 저장됨 — 연결되면 자동으로 전송돼요', 'warn');
+        setSendStatus('📨 저장됨 — 연결되면 자동으로 접수돼요', 'warn');
+        setTimeout(outboxFlush, 3000);      // 휴대폰은 몇 초 뒤 페이지를 닫는다
+        setTimeout(outboxFlush, 10000);
       }
     });
   });
@@ -1020,7 +1029,7 @@ function setSendStatus(text, kind){
   n.textContent = text; n.className = 'send-status ' + (kind || '');
 }
 
-/* ---------------- 이메일 웹훅 ---------------- */
+/* ---------------- 응모 정보 웹훅 ---------------- */
 function isFormTransport(){
   // Make / Zapier / n8n 등 범용 웹훅은 CORS preflight 를 못 받으므로 form 인코딩으로 보낸다
   return WEBHOOK.provider === 'make' || WEBHOOK.provider === 'json';
@@ -1111,6 +1120,29 @@ function outboxFlush(){
   };
   step(0);
 }
+/* 페이지가 닫히거나 백그라운드로 갈 때의 마지막 기회.
+   fetch 는 이때 중단되지만 sendBeacon 은 브라우저가 대신 끝까지 보내준다.
+   휴대폰 사용자는 결과 화면을 보고 바로 화면을 끄거나 앱을 전환하기 때문에
+   이 경로가 없으면 응모가 통째로 사라진다. */
+function outboxBeacon(){
+  if (!WEBHOOK.url || !navigator.sendBeacon) return;
+  const queue = outboxLoad();
+  if (!queue.length) return;
+  const TYPE = 'application/x-www-form-urlencoded;charset=UTF-8';
+  const left = [];
+  for (const item of queue){
+    let sent = false;
+    try {
+      const body = new URLSearchParams(buildBody(item)).toString();
+      sent = navigator.sendBeacon(WEBHOOK.url, new Blob([body], { type:TYPE }));
+    } catch(e){}
+    if (!sent) left.push(item);
+  }
+  outboxSave(left);
+}
+window.addEventListener('pagehide', outboxBeacon);
+document.addEventListener('visibilitychange', () => { if (document.hidden) outboxBeacon(); });
+
 setInterval(outboxFlush, WEBHOOK.retrySec * 1000);
 window.addEventListener('online', outboxFlush);
 outboxFlush();
